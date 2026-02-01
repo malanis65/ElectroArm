@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Cuadros Eléctricos</title>
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="https://i.postimg.cc/0yyrHL82/Eklectro-Arm-logo.png">
+  <link rel="apple-touch-icon" href="https://i.postimg.cc/0yyrHL82/Eklectro-Arm-logo.png">
+
+  <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: Arial, sans-serif; background: #f4f4f4; color: #333; font-size: 16px; line-height: 1.5; }
+
+    .sidebar {
+      background: #003087;
+      color: white;
+      padding: 20px 10px;
+      width: 220px;
+      height: 100vh;
+      position: fixed;
+      top: 0;
+      left: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 15px;
+      overflow-y: auto;
+      z-index: 1000;
+      transition: transform 0.3s ease;
+    }
+    .sidebar h1 { font-size: 1.4em; text-align: center; margin: 0; }
+    .sidebar ul { list-style: none; width: 100%; padding: 0; margin: 10px 0 0; }
+    .sidebar li {
+      padding: 10px 15px;
+      cursor: pointer;
+      font-size: 1em;
+      text-align: center;
+      transition: background 0.2s;
+      width: 100%;
+      border-radius: 6px;
+    }
+    .sidebar li:hover, .sidebar li.active { background: #0050b3; }
+    .salir {
+      margin-top: auto;
+      padding: 12px;
+      background: #dc3545;
+      width: 100%;
+      text-align: center;
+      cursor: pointer;
+      font-weight: bold;
+      border-radius: 6px;
+    }
+    .salir:hover { background: #c82333; }
+
+    .main-content {
+      margin-left: 220px;
+      padding: 15px;
+      min-height: 100vh;
+      transition: margin-left 0.3s ease;
+    }
+
+    @media (max-width: 768px) {
+      .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: auto;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+        padding: 8px 5px;
+        transform: translateY(-100%);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      }
+      .sidebar.visible { transform: translateY(0); }
+      .sidebar ul { 
+        display: flex; 
+        flex-wrap: wrap; 
+        justify-content: center; 
+        gap: 6px; 
+        margin: 0; 
+      }
+      .sidebar li, .salir {
+        padding: 6px 10px;
+        font-size: 0.9em;
+        flex: 1 1 auto;
+        max-width: 110px;
+      }
+      .main-content { margin-left: 0; padding-top: 60px; }
+
+      #menu-toggle {
+        position: fixed;
+        top: 8px;
+        left: 8px;
+        z-index: 1100;
+        background: #003087;
+        color: white;
+        border: none;
+        width: 40px;
+        height: 40px;
+        font-size: 1.4em;
+        line-height: 40px;
+        text-align: center;
+        cursor: pointer;
+        border-radius: 6px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        padding: 0;
+      }
+    }
+
+    .logo-container { text-align: center; margin: 20px 0 30px; }
+    .logo-container img { max-width: 220px; height: auto; }
+
+    .header-title { background: #003087; color: white; padding: 12px; margin: -15px -15px 20px -15px; font-size: 1.3em; text-align: center; }
+    .form-container { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin: 0 auto; max-width: 100%; }
+    label { display: block; margin: 10px 0 4px; font-weight: bold; }
+    input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 1em; }
+    textarea { min-height: 100px; resize: vertical; }
+    button { background: #003087; color: white; border: none; padding: 12px 20px; font-size: 1em; border-radius: 6px; cursor: pointer; margin: 15px auto; display: block; width: 100%; max-width: 300px; }
+    button:hover { background: #0050b3; }
+    .cancel-btn { background: #dc3545; }
+    .cancel-btn:hover { background: #c82333; }
+    .table-container { overflow-x: auto; margin: 15px 0; }
+    table { width: 100%; min-width: 600px; border-collapse: collapse; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: center; font-size: 0.9em; }
+    th { background: #e6f0ff; font-weight: bold; }
+    .action-icon { cursor: pointer; font-size: 1.3em; margin: 0 6px; }
+    .delete-icon { color: #dc3545; }
+    #formularioCuadroContainer, #formularioRevisionContainer { display: none; margin-top: 20px; }
+    #exportDialog { 
+      display: none; 
+      position: fixed; 
+      top: 50%; 
+      left: 50%; 
+      transform: translate(-50%, -50%); 
+      background: white; 
+      padding: 25px; 
+      border-radius: 12px; 
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4); 
+      z-index: 2000; 
+      width: 90%; 
+      max-width: 500px; 
+    }
+    #cuadrosExportCheckboxes { max-height: 250px; overflow-y: auto; padding: 10px; border: 1px solid #ddd; border-radius: 6px; background: #f9f9f9; }
+    #cuadrosExportCheckboxes label { display: block; margin: 8px 0; font-size: 1.05em; }
+    .export-buttons button { margin: 10px 8px; width: auto; display: inline-block; padding: 12px 20px; }
+    .firma-selector {
+      margin: 20px 0;
+      text-align: center;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+    .firma-selector label {
+      display: inline-block;
+      margin: 0 25px;
+      font-size: 1.1em;
+      cursor: pointer;
+    }
+    .welcome-page {
+      text-align: center;
+      padding: 40px 20px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      max-width: 800px;
+      margin: 40px auto;
+    }
+    .welcome-page h1 { color: #003087; margin: 20px 0; }
+    .welcome-page p { font-size: 1.2em; margin: 15px 0; color: #555; }
+    .inspeccion-visual label { display: block; margin: 8px 0; font-weight: normal; }
+    .inspeccion-visual strong { display: block; margin: 15px 0 5px; font-size: 1.1em; }
+  </style>
+</head>
+<body>
+  <button id="menu-toggle" style="display:none;">☰</button>
+
+  <div class="sidebar" id="sidebar">
+    <h1>Cuadros Eléctricos</h1>
+    <ul>
+      <li class="active" data-seccion="inicio">Inicio</li>
+      <li data-seccion="cuadros">Cuadros</li>
+      <li data-seccion="revision">Revisión</li>
+      <li data-seccion="historial">Historial</li>
+    </ul>
+    <div class="salir" id="btnSalir">Salir</div>
+  </div>
+
+  <div class="main-content">
+    <!-- Inicio -->
+    <div id="seccion-inicio" class="seccion">
+      <div class="welcome-page">
+        <div class="logo-container">
+          <img src="https://i.postimg.cc/0yyrHL82/Eklectro-Arm-logo.png" alt="Eklectro Arm Logo">
+        </div>
+        <h1>Bienvenido al Sistema de Gestión de Cuadros Eléctricos</h1>
+        <p>Esta aplicación te permite registrar, revisar y mantener un historial completo de los cuadros eléctricos.</p>
+        
+        <h3>¿Cómo empezar?</h3>
+        <p>Usa el menú para navegar:</p>
+        <ul style="list-style: none; padding: 0; text-align: left; max-width: 500px; margin: 30px auto;">
+          <li style="margin: 15px 0;">→ <strong>Inicio</strong>: esta pantalla</li>
+          <li style="margin: 15px 0;">→ <strong>Cuadros</strong>: ver, añadir y editar cuadros</li>
+          <li style="margin: 15px 0;">→ <strong>Revisión</strong>: registrar inspecciones y mediciones</li>
+          <li style="margin: 15px 0;">→ <strong>Historial</strong>: consultar revisiones y exportar informes</li>
+        </ul>
+        
+        <p><strong>¡Selecciona una opción para comenzar!</strong></p>
+      </div>
+    </div>
+
+    <!-- Cuadros -->
+    <div id="seccion-cuadros" class="seccion" style="display:none;">
+      <div class="header-title">Cuadros Eléctricos</div>
+      <div class="form-container">
+        <button id="btnMostrarFormulario">+ Añadir Nuevo Cuadro</button>
+
+        <div id="formularioCuadroContainer">
+          <h2 id="formCuadroTitle">Añadir/Editar Cuadro</h2>
+          <form id="cuadroForm">
+            <label>Id Cuadro</label><input type="text" id="idCuadro" required>
+            <label>Ubicación</label><input type="text" id="ubicacion" required>
+            <label>Nº de líneas</label><input type="number" id="numLineas" min="1" value="3">
+
+            <div style="display:flex; gap:15px; margin-top:20px;">
+              <button type="submit" style="flex:1;">Guardar</button>
+              <button type="button" id="btnCancelarCuadro" class="cancel-btn" style="flex:1;">Volver</button>
+            </div>
+          </form>
+        </div>
+
+        <h2>Lista de Cuadros</h2>
+        <div class="table-container">
+          <table id="listaCuadros">
+            <thead><tr><th>Id</th><th>Ubicación</th><th>Líneas</th><th>Acciones</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Revisión -->
+    <div id="seccion-revision" class="seccion" style="display:none;">
+      <div class="header-title">Revisión Cuadros Eléctricos</div>
+      <div class="form-container">
+        <label>Cuadro</label>
+        <select id="cuadroSelectRevision">
+          <option value="">Selecciona cuadro</option>
+        </select>
+
+        <label>Nombre del Técnico / Responsable</label>
+        <input type="text" id="tecnicoRevision" placeholder="Nombre completo" required>
+
+        <h3>2. Inspección Visual</h3>
+        <div class="inspeccion-visual">
+          <strong>Estado general del cuadro:</strong>
+          <label><input type="radio" name="estadoGeneral" value="Bueno"> Bueno</label>
+          <label><input type="radio" name="estadoGeneral" value="Regular"> Regular</label>
+          <label><input type="radio" name="estadoGeneral" value="Malo"> Malo</label>
+
+          <strong>Envolvente:</strong>
+          <label><input type="radio" name="envolvente" value="Limpia"> Limpia</label>
+          <label><input type="radio" name="envolvente" value="Sucia"> Sucia</label>
+          <label><input type="radio" name="envolvente" value="Dañada"> Dañada</label>
+
+          <strong>Identificación de circuitos clara:</strong>
+          <label><input type="radio" name="circuitosClara" value="Sí"> Sí</label>
+          <label><input type="radio" name="circuitosClara" value="No"> No</label>
+
+          <strong>Conexiones y cables:</strong>
+          <label><input type="radio" name="conexiones" value="Correcto"> Correcto</label>
+          <label><input type="radio" name="conexiones" value="Flojo"> Flojo</label>
+          <label><input type="radio" name="conexiones" value="Dañado"> Dañado</label>
+
+          <strong>Dispositivos de protección:</strong>
+          <label><input type="radio" name="proteccion" value="Correcto"> Correcto</label>
+          <label><input type="radio" name="proteccion" value="Dañado"> Dañado</label>
+        </div>
+
+        <h3>3. Mediciones por Línea</h3>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Línea</th>
+                <th>Tensión (V)</th>
+                <th>Corriente (A)</th>
+                <th>R. Aislamiento (MΩ)</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody id="lineasRevision"></tbody>
+          </table>
+        </div>
+        <button id="btnAgregarLinea">+ Añadir línea</button>
+
+        <h3>4. Acciones Realizadas</h3>
+        <div class="checkbox-group">
+          <label><input type="checkbox" name="acciones" value="Ajuste conexiones"> Ajuste de conexiones</label>
+          <label><input type="checkbox" name="acciones" value="Limpieza interna"> Limpieza interna</label>
+          <label><input type="checkbox" name="acciones" value="Sustitución componentes"> Sustitución de componentes</label>
+          <label><input type="checkbox" name="acciones" value="Pruebas funcionamiento"> Pruebas de funcionamiento</label>
+        </div>
+
+        <h3>5. Observaciones y Recomendaciones</h3>
+        <textarea id="observacionesRevision" placeholder="Estado general, anomalías detectadas, recomendaciones..."></textarea>
+
+        <button id="btnGuardarRevision">Guardar Revisión</button>
+      </div>
+    </div>
+
+    <!-- Historial -->
+    <div id="seccion-historial" class="seccion" style="display:none;">
+      <div class="header-title">Historial de Revisiones</div>
+      <div class="form-container">
+        <button id="btnExportarSeleccionados">Exportar seleccionados</button>
+        <div class="table-container">
+          <table id="tablaHistorial">
+            <thead>
+              <tr>
+                <th>Cuadro</th>
+                <th>Técnico</th>
+                <th>Fecha</th>
+                <th>Mediciones</th>
+                <th>Observaciones</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="historialBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="formularioRevisionContainer" style="display:none;">
+        <h2 id="formRevisionTitle">Editar Revisión</h2>
+        <form id="revisionForm">
+          <label>Cuadro</label>
+          <input type="text" id="editCuadroId" readonly>
+
+          <label>Nombre del Técnico / Responsable</label>
+          <input type="text" id="editTecnico" placeholder="Nombre completo">
+
+          <label>Fecha</label>
+          <input type="text" id="editFecha" readonly>
+
+          <h3>2. Inspección Visual</h3>
+          <div class="inspeccion-visual">
+            <strong>Estado general del cuadro:</strong>
+            <label><input type="radio" name="editEstadoGeneral" value="Bueno"> Bueno</label>
+            <label><input type="radio" name="editEstadoGeneral" value="Regular"> Regular</label>
+            <label><input type="radio" name="editEstadoGeneral" value="Malo"> Malo</label>
+
+            <strong>Envolvente:</strong>
+            <label><input type="radio" name="editEnvolvente" value="Limpia"> Limpia</label>
+            <label><input type="radio" name="editEnvolvente" value="Sucia"> Sucia</label>
+            <label><input type="radio" name="editEnvolvente" value="Dañada"> Dañada</label>
+
+            <strong>Identificación de circuitos clara:</strong>
+            <label><input type="radio" name="editCircuitosClara" value="Sí"> Sí</label>
+            <label><input type="radio" name="editCircuitosClara" value="No"> No</label>
+
+            <strong>Conexiones y cables:</strong>
+            <label><input type="radio" name="editConexiones" value="Correcto"> Correcto</label>
+            <label><input type="radio" name="editConexiones" value="Flojo"> Flojo</label>
+            <label><input type="radio" name="editConexiones" value="Dañado"> Dañado</label>
+
+            <strong>Dispositivos de protección:</strong>
+            <label><input type="radio" name="editProteccion" value="Correcto"> Correcto</label>
+            <label><input type="radio" name="editProteccion" value="Dañado"> Dañado</label>
+          </div>
+
+          <h3>3. Mediciones por Línea</h3>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Línea</th>
+                  <th>Tensión (V)</th>
+                  <th>Corriente (A)</th>
+                  <th>R. Aislamiento (MΩ)</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody id="editLineas"></tbody>
+            </table>
+          </div>
+          <button type="button" id="btnAgregarLineaEdit">+ Línea</button>
+
+          <h3>4. Acciones Realizadas</h3>
+          <div class="checkbox-group">
+            <label><input type="checkbox" name="editAcciones" value="Ajuste conexiones"> Ajuste de conexiones</label>
+            <label><input type="checkbox" name="editAcciones" value="Limpieza interna"> Limpieza interna</label>
+            <label><input type="checkbox" name="editAcciones" value="Sustitución componentes"> Sustitución de componentes</label>
+            <label><input type="checkbox" name="editAcciones" value="Pruebas funcionamiento"> Pruebas de funcionamiento</label>
+          </div>
+
+          <h3>5. Observaciones y Recomendaciones</h3>
+          <textarea id="editObservaciones"></textarea>
+
+          <div style="display:flex; gap:15px; margin-top:20px;">
+            <button type="submit">Guardar Cambios</button>
+            <button type="button" class="cancel-btn" onclick="document.getElementById('formularioRevisionContainer').style.display='none'">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="exportDialog">
+    <h2>Exportar Revisiones</h2>
+    <p>Selecciona los cuadros:</p>
+    <div id="cuadrosExportCheckboxes"></div>
+
+    <div class="firma-selector">
+      <p><strong>¿Quién firma la ficha de mantenimiento?</strong></p>
+      <label>
+        <input type="radio" name="firmaTecnico" value="MANUEL CONEJERO" checked> MANUEL CONEJERO
+      </label>
+      <label>
+        <input type="radio" name="firmaTecnico" value="FLORIN CURELAR"> FLORIN CURELAR
+      </label>
+    </div>
+
+    <div style="margin-top: 25px; text-align: center;" class="export-buttons">
+      <button id="btnExportarExcel">Exportar a Excel</button>
+      <button id="btnExportarPDF">Exportar a PDF (Ficha Mantenimiento)</button>
+      <button id="btnCancelarExport">Cancelar</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+    import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDCgh0qASbuhZBhmwORPnTdkOGc6CGKCKw",
+      authDomain: "chatamarillos.firebaseapp.com",
+      databaseURL: "https://chatamarillos-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "chatamarillos",
+      storageBucket: "chatamarillos.firebasestorage.app",
+      messagingSenderId: "1037628514726",
+      appId: "1:1037628514726:web:615cbc7ea3aa9997adaf67",
+      measurementId: "G-YCRYL0PTGW"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    let cuadros = [];
+    let revisiones = [];
+
+    onSnapshot(collection(db, "cuadros"), snap => {
+      cuadros = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+      actualizarListaCuadros();
+      actualizarSelectRevision();
+    });
+
+    onSnapshot(collection(db, "revisiones"), snap => {
+      revisiones = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+      actualizarHistorial();
+    });
+
+    function mostrarSeccion(seccion) {
+      document.querySelectorAll('.seccion').forEach(el => el.style.display = 'none');
+      document.getElementById('seccion-' + seccion).style.display = 'block';
+      document.querySelectorAll('.sidebar li').forEach(li => li.classList.remove('active'));
+      document.querySelector(`.sidebar li[data-seccion="${seccion}"]`)?.classList.add('active');
+
+      if (window.innerWidth <= 768) {
+        document.getElementById('sidebar').classList.remove('visible');
+      }
+    }
+
+    document.querySelectorAll('.sidebar li').forEach(li => {
+      li.addEventListener('click', () => {
+        const seccion = li.getAttribute('data-seccion');
+        if (seccion) mostrarSeccion(seccion);
+      });
+    });
+
+    document.getElementById('btnSalir').addEventListener('click', () => {
+      mostrarSeccion('inicio');
+    });
+
+    document.getElementById('menu-toggle').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.toggle('visible');
+    });
+
+    // CUADROS
+    const formCuadro = document.getElementById('cuadroForm');
+    let modoEdicion = false;
+    let docIdEdicion = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const btnMostrar = document.getElementById('btnMostrarFormulario');
+      if (btnMostrar) {
+        btnMostrar.addEventListener('click', () => {
+          resetFormularioCuadro();
+          document.getElementById('formularioCuadroContainer').style.display = 'block';
+          btnMostrar.style.display = 'none';
+        });
+      }
+
+      const btnCancelarCuadro = document.getElementById('btnCancelarCuadro');
+      if (btnCancelarCuadro) {
+        btnCancelarCuadro.addEventListener('click', () => {
+          resetFormularioCuadro();
+          document.getElementById('btnMostrarFormulario').style.display = 'block';
+        });
+      }
+
+      if (window.innerWidth <= 768) {
+        document.getElementById('menu-toggle').style.display = 'block';
+      }
+    });
+
+    formCuadro.addEventListener('submit', async e => {
+      e.preventDefault();
+      const id = document.getElementById('idCuadro').value.trim().toUpperCase();
+      const ubicacion = document.getElementById('ubicacion').value.trim();
+      const numLineas = parseInt(document.getElementById('numLineas').value) || 3;
+
+      if (modoEdicion) {
+        if (id !== cuadros.find(c => c.docId === docIdEdicion)?.id && cuadros.some(c => c.id === id)) {
+          return alert('Este ID ya existe');
+        }
+        await setDoc(doc(db, "cuadros", docIdEdicion), { id, ubicacion, numLineas }, { merge: true });
+        alert('Cuadro actualizado');
+      } else {
+        if (cuadros.some(c => c.id === id)) return alert('Este ID ya existe');
+        await addDoc(collection(db, "cuadros"), { id, ubicacion, numLineas, createdAt: serverTimestamp() });
+        alert('Cuadro añadido');
+      }
+      resetFormularioCuadro();
+    });
+
+    function resetFormularioCuadro() {
+      formCuadro.reset();
+      const formTitle = document.getElementById('formCuadroTitle');
+      if (formTitle) formTitle.textContent = 'Añadir Cuadro';
+      modoEdicion = false;
+      docIdEdicion = null;
+      document.getElementById('formularioCuadroContainer').style.display = 'none';
+      document.getElementById('btnMostrarFormulario').style.display = 'block';
+    }
+
+    function editarCuadro(docId) {
+      const cuadro = cuadros.find(c => c.docId === docId);
+      if (!cuadro) return;
+
+      document.getElementById('idCuadro').value = cuadro.id;
+      document.getElementById('ubicacion').value = cuadro.ubicacion || '';
+      document.getElementById('numLineas').value = cuadro.numLineas || 3;
+      document.getElementById('formularioCuadroContainer').style.display = 'block';
+      document.getElementById('btnMostrarFormulario').style.display = 'none';
+      const formTitle = document.getElementById('formCuadroTitle');
+      if (formTitle) formTitle.textContent = `Editar Cuadro: ${cuadro.id}`;
+      modoEdicion = true;
+      docIdEdicion = docId;
+    }
+
+    function actualizarListaCuadros() {
+      const tbody = document.querySelector('#listaCuadros tbody');
+      tbody.innerHTML = '';
+      cuadros.forEach(c => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${c.id}</td>
+          <td>${c.ubicacion || '-'}</td>
+          <td>${c.numLineas || '-'}</td>
+          <td>
+            <span class="action-icon edit-icon" data-docid="${c.docId}">✏️</span>
+            <span class="delete-icon action-icon" data-docid="${c.docId}">🗑️</span>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      tbody.querySelectorAll('.edit-icon').forEach(icon => icon.addEventListener('click', () => editarCuadro(icon.dataset.docid)));
+      tbody.querySelectorAll('.delete-icon').forEach(icon => icon.addEventListener('click', () => eliminarCuadro(icon.dataset.docid)));
+    }
+
+    async function eliminarCuadro(docId) {
+      if (confirm('¿Eliminar cuadro y sus revisiones?')) {
+        await deleteDoc(doc(db, "cuadros", docId));
+        const revs = revisiones.filter(r => r.cuadroId === cuadros.find(c => c.docId === docId)?.id);
+        for (const rev of revs) await deleteDoc(doc(db, "revisiones", rev.docId));
+      }
+    }
+
+    function actualizarSelectRevision() {
+      const sel = document.getElementById('cuadroSelectRevision');
+      sel.innerHTML = '<option value="">Selecciona cuadro</option>';
+      cuadros.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.id;
+        opt.dataset.numLineas = c.numLineas || 3;
+        sel.appendChild(opt);
+      });
+    }
+
+    function cargarLineasAutomaticas() {
+      const select = document.getElementById('cuadroSelectRevision');
+      const tbody = document.getElementById('lineasRevision');
+      tbody.innerHTML = '';
+      if (!select.value) return;
+      const num = parseInt(select.selectedOptions[0]?.dataset.numLineas) || 3;
+      for (let i = 1; i <= num; i++) agregarFilaRevision(i);
+      colorearCeldas();
+    }
+
+    function agregarFilaRevision(num = null) {
+      const tbody = document.getElementById('lineasRevision');
+      const lineaNum = num ?? tbody.children.length + 1;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${lineaNum}</td>
+        <td><input type="number" step="0.1" class="v"></td>
+        <td><input type="number" step="0.1" class="a"></td>
+        <td><input type="number" step="0.01" class="mq"></td>
+        <td><button type="button" class="delete-line">✖</button></td>
+      `;
+      tbody.appendChild(tr);
+      tr.querySelector('.delete-line').onclick = () => { tr.remove(); colorearCeldas(); };
+      tr.querySelectorAll('input').forEach(inp => inp.oninput = colorearCeldas);
+    }
+
+    function colorearCeldas() {
+      document.querySelectorAll('#lineasRevision tr').forEach(tr => {
+        const tds = tr.querySelectorAll('td');
+        if (tds.length < 4) return;
+        const [_, vTd, aTd, mqTd] = tds;
+        const v = parseFloat(vTd.querySelector('input')?.value);
+        const a = parseFloat(aTd.querySelector('input')?.value);
+        const mq = parseFloat(mqTd.querySelector('input')?.value);
+
+        vTd.className = 'tension ' + (!isNaN(v) ? (v < 180 || v > 270 ? 'alto' : 'normal') : '');
+        aTd.className = 'intensidad ' + (!isNaN(a) && a > 63 ? 'alto' : '');
+        mqTd.className = 'aislamiento ' + (!isNaN(mq) && mq < 1 ? 'bajo' : '');
+      });
+    }
+
+    async function guardarRevision() {
+      const cuadroId = document.getElementById('cuadroSelectRevision').value;
+      if (!cuadroId) return alert('Selecciona un cuadro');
+
+      const tecnico = document.getElementById('tecnicoRevision').value.trim();
+      if (!tecnico) return alert('Por favor, indica el nombre del técnico');
+
+      const estadoGeneral = document.querySelector('input[name="estadoGeneral"]:checked')?.value || null;
+      const envolvente = document.querySelector('input[name="envolvente"]:checked')?.value || null;
+      const circuitosClara = document.querySelector('input[name="circuitosClara"]:checked')?.value || null;
+      const conexiones = document.querySelector('input[name="conexiones"]:checked')?.value || null;
+      const proteccion = document.querySelector('input[name="proteccion"]:checked')?.value || null;
+
+      const acciones = Array.from(document.querySelectorAll('input[name="acciones"]:checked')).map(cb => cb.value);
+
+      const lineas = [];
+      document.querySelectorAll('#lineasRevision tr').forEach(tr => {
+        const inputs = tr.querySelectorAll('input');
+        if (inputs.length !== 3) return;
+        const v = parseFloat(inputs[0].value) || null;
+        const a = parseFloat(inputs[1].value) || null;
+        const mq = parseFloat(inputs[2].value) || null;
+        const linea = tr.cells[0].textContent;
+        if (v || a || mq) lineas.push({ linea, v, a, mq });
+      });
+
+      const observaciones = document.getElementById('observacionesRevision').value.trim();
+
+      await addDoc(collection(db, "revisiones"), {
+        cuadroId,
+        tecnico,
+        estadoGeneral,
+        envolvente,
+        circuitosClara,
+        conexiones,
+        proteccion,
+        acciones,
+        lineas,
+        observaciones,
+        fecha: serverTimestamp(),
+        createdAt: serverTimestamp()
+      });
+
+      alert('Revisión guardada');
+      document.querySelectorAll('input[type="radio"], input[type="checkbox"], input[type="text"]').forEach(el => {
+        if (el.type !== 'button') el.value = '';
+        if (el.type === 'radio' || el.type === 'checkbox') el.checked = false;
+      });
+      document.getElementById('lineasRevision').innerHTML = '';
+      document.getElementById('observacionesRevision').value = '';
+      cargarLineasAutomaticas();
+    }
+
+    function actualizarHistorial() {
+      const tbody = document.getElementById('historialBody');
+      tbody.innerHTML = '';
+      const revsOrden = [...revisiones].sort((a,b) => (b.fecha?.toDate?.()?.getTime() || 0) - (a.fecha?.toDate?.()?.getTime() || 0));
+      revsOrden.forEach(r => {
+        const fechaStr = r.fecha?.toDate?.() ? new Date(r.fecha.toDate()).toLocaleString('es-ES') : '—';
+        const mediciones = r.lineas?.map(l => `${l.linea}: ${l.v??'-'}V / ${l.a??'-'}A / ${l.mq??'-'}MΩ`).join('<br>') || '—';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${r.cuadroId}</td>
+          <td>${r.tecnico || '—'}</td>
+          <td>${fechaStr}</td>
+          <td>${mediciones}</td>
+          <td>${r.observaciones || '—'}</td>
+          <td>
+            <span class="action-icon edit-icon" data-docid="${r.docId}">✏️</span>
+            <button class="excel-btn" data-docid="${r.docId}">Excel</button>
+            <span class="delete-icon action-icon" data-docid="${r.docId}">🗑️</span>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.getElementById('tablaHistorial').addEventListener('click', e => {
+      const target = e.target.closest('.edit-icon, .excel-btn, .delete-icon');
+      if (!target) return;
+
+      const docId = target.dataset.docid;
+      if (!docId) return;
+
+      if (target.classList.contains('edit-icon')) {
+        editarRevision(docId);
+      } else if (target.classList.contains('excel-btn')) {
+        exportarRevisionAExcel(docId);
+      } else if (target.classList.contains('delete-icon')) {
+        borrarRevision(docId);
+      }
+    });
+
+    function editarRevision(docId) {
+      const r = revisiones.find(r => r.docId === docId);
+      if (!r) return alert('Revisión no encontrada');
+
+      document.getElementById('editCuadroId').value = r.cuadroId;
+      document.getElementById('editTecnico').value = r.tecnico || '';
+      document.getElementById('editFecha').value = r.fecha?.toDate?.() ? new Date(r.fecha.toDate()).toLocaleString('es-ES') : '—';
+      document.getElementById('editObservaciones').value = r.observaciones || '';
+
+      if (r.estadoGeneral) {
+        const radio = document.querySelector(`input[name="editEstadoGeneral"][value="${r.estadoGeneral}"]`);
+        if (radio) radio.checked = true;
+      }
+      if (r.envolvente) {
+        const radio = document.querySelector(`input[name="editEnvolvente"][value="${r.envolvente}"]`);
+        if (radio) radio.checked = true;
+      }
+      if (r.circuitosClara) {
+        const radio = document.querySelector(`input[name="editCircuitosClara"][value="${r.circuitosClara}"]`);
+        if (radio) radio.checked = true;
+      }
+      if (r.conexiones) {
+        const radio = document.querySelector(`input[name="editConexiones"][value="${r.conexiones}"]`);
+        if (radio) radio.checked = true;
+      }
+      if (r.proteccion) {
+        const radio = document.querySelector(`input[name="editProteccion"][value="${r.proteccion}"]`);
+        if (radio) radio.checked = true;
+      }
+
+      (r.acciones || []).forEach(acc => {
+        const checkbox = document.querySelector(`input[name="editAcciones"][value="${acc}"]`);
+        if (checkbox) checkbox.checked = true;
+      });
+
+      const tbody = document.getElementById('editLineas');
+      tbody.innerHTML = '';
+      (r.lineas || []).forEach(l => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${l.linea}</td>
+          <td><input type="number" step="0.1" value="${l.v ?? ''}"></td>
+          <td><input type="number" step="0.1" value="${l.a ?? ''}"></td>
+          <td><input type="number" step="0.01" value="${l.mq ?? ''}"></td>
+          <td><button type="button" class="delete-line">✖</button></td>
+        `;
+        tbody.appendChild(tr);
+        tr.querySelector('.delete-line').onclick = () => tr.remove();
+      });
+
+      document.getElementById('formularioRevisionContainer').style.display = 'block';
+    }
+
+    function exportarRevisionAExcel(docId) {
+      const r = revisiones.find(r => r.docId === docId);
+      if (!r) return alert('Revisión no encontrada');
+
+      const fechaStr = r.fecha?.toDate?.() ? new Date(r.fecha.toDate()).toLocaleString('es-ES') : '—';
+
+      const data = [
+        [`CUADRO: ${r.cuadroId}`],
+        ["Fecha", fechaStr],
+        ["Técnico", r.tecnico || '—'],
+        ["Observaciones", r.observaciones || '—'],
+        [],
+        ["Línea", "Tensión (V)", "Intensidad (A)", "R. Aislamiento (MΩ)"]
+      ];
+
+      r.lineas.forEach(l => data.push([l.linea, l.v ?? '-', l.a ?? '-', l.mq ?? '-']));
+
+      const ws = XLSX.utils.aoa_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Revisión");
+
+      XLSX.writeFile(wb, `Revision_${r.cuadroId}_${new Date().toISOString().slice(0,10)}.xlsx`);
+    }
+
+    async function borrarRevision(docId) {
+      if (confirm('¿Seguro que quieres borrar esta revisión?')) {
+        await deleteDoc(doc(db, "revisiones", docId));
+        alert('Revisión borrada');
+      }
+    }
+
+    document.getElementById('btnExportarSeleccionados').addEventListener('click', () => {
+      const dialog = document.getElementById('exportDialog');
+      const container = document.getElementById('cuadrosExportCheckboxes');
+      container.innerHTML = '';
+
+      const unicos = [...new Set(revisiones.map(r => r.cuadroId))].sort();
+      if (unicos.length === 0) {
+        container.innerHTML = '<p style="color:#dc3545; text-align:center; padding:20px;">No hay revisiones guardadas todavía.</p>';
+      } else {
+        unicos.forEach(id => {
+          const cant = revisiones.filter(r => r.cuadroId === id).length;
+          const label = document.createElement('label');
+          label.innerHTML = `<input type="checkbox" value="${id}" checked> <strong>${id}</strong> (${cant} revisiones)`;
+          container.appendChild(label);
+        });
+      }
+      dialog.style.display = 'block';
+    });
+
+    document.getElementById('btnExportarExcel').addEventListener('click', () => {
+      const checkboxes = document.querySelectorAll('#cuadrosExportCheckboxes input:checked');
+      if (checkboxes.length === 0) return alert('Selecciona al menos un cuadro');
+
+      const seleccion = Array.from(checkboxes).map(cb => cb.value);
+
+      const wb = XLSX.utils.book_new();
+
+      const porCuadro = {};
+      revisiones.forEach(r => {
+        if (seleccion.includes(r.cuadroId)) {
+          if (!porCuadro[r.cuadroId]) porCuadro[r.cuadroId] = [];
+          porCuadro[r.cuadroId].push(r);
+        }
+      });
+
+      if (Object.keys(porCuadro).length === 0) return alert('No hay datos para exportar');
+
+      Object.keys(porCuadro).sort().forEach(id => {
+        const data = [];
+        data.push([`CUADRO: ${id}`]);
+        data.push([]);
+
+        porCuadro[id].forEach(r => {
+          const fechaStr = r.fecha?.toDate?.() ? new Date(r.fecha.toDate()).toLocaleString('es-ES') : '—';
+          data.push([`Revisión: ${fechaStr}`]);
+          data.push([`Técnico: ${r.tecnico || '—'}`]);
+          data.push(["Línea", "Tensión (V)", "Intensidad (A)", "R. Aislamiento (MΩ)", "Observaciones"]);
+
+          r.lineas.forEach(l => {
+            data.push([l.linea, l.v ?? '-', l.a ?? '-', l.mq ?? '-', r.observaciones || '-']);
+          });
+          data.push([]);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(data);
+
+        for (let row = 1; row <= data.length; row++) {
+          const mqCell = ws[`D${row}`];
+          if (mqCell && mqCell.v != null && !isNaN(mqCell.v) && mqCell.v < 0.5) {
+            mqCell.s = {
+              font: { color: { rgb: "FF0000" }, bold: true },
+              fill: { fgColor: { rgb: "FFCCCC" } }
+            };
+          }
+        }
+
+        ws['!cols'] = [{wch:15},{wch:14},{wch:14},{wch:22},{wch:60}];
+
+        XLSX.utils.book_append_sheet(wb, ws, id.substring(0, 31));
+      });
+
+      XLSX.writeFile(wb, `Revisiones_${new Date().toISOString().slice(0,10)}.xlsx`);
+      document.getElementById('exportDialog').style.display = 'none';
+    });
+
+    document.getElementById('btnExportarPDF').addEventListener('click', () => {
+      const checkboxes = document.querySelectorAll('#cuadrosExportCheckboxes input:checked');
+      if (checkboxes.length === 0) return alert('Selecciona al menos un cuadro');
+
+      // Obtener la firma seleccionada
+      const firmaSeleccionada = document.querySelector('input[name="firmaTecnico"]:checked')?.value || 'Técnico no especificado';
+
+      const seleccion = Array.from(checkboxes).map(cb => cb.value);
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+
+      // URL del logo del Ministerio de Movilidad
+      const ministerioLogoUrl = 'https://i.postimg.cc/yNG0z6GT/Ministerio.png';
+
+      const porCuadro = {};
+      revisiones.forEach(r => {
+        if (seleccion.includes(r.cuadroId)) {
+          if (!porCuadro[r.cuadroId]) porCuadro[r.cuadroId] = [];
+          porCuadro[r.cuadroId].push(r);
+        }
+      });
+
+      // Cargar la imagen del logo (una sola vez)
+      const img = new Image();
+      img.crossOrigin = "Anonymous";
+      img.src = ministerioLogoUrl;
+
+      img.onload = function () {
+        Object.keys(porCuadro).forEach((cuadroId, index) => {
+          if (index > 0) doc.addPage();
+
+          // Añadir logo del ministerio en el encabezado (centrado arriba)
+          const logoWidth = 50; // mm (ajusta si quieres más grande/pequeño)
+          const logoHeight = (img.height / img.width) * logoWidth;
+          const x = (doc.internal.pageSize.getWidth() - logoWidth) / 2;
+          doc.addImage(img, 'PNG', x, 5, logoWidth, logoHeight);
+
+          // Título debajo del logo
+          doc.setFontSize(14);
+          doc.text("FICHA DE MANTENIMIENTO DE CUADRO ELÉCTRICO", 105, 35, { align: "center" });
+
+          doc.setFontSize(12);
+          doc.text("1. DATOS GENERALES", 20, 45);
+
+          doc.setFontSize(10);
+          doc.text("Ubicación del cuadro:", 25, 55);
+          doc.text(cuadroId, 80, 55);
+
+          doc.text("Código o identificación:", 25, 63);
+          doc.text(cuadroId, 80, 63);
+
+          const ultimo = porCuadro[cuadroId][porCuadro[cuadroId].length - 1] || {};
+          doc.text("Técnico / Responsable:", 25, 71);
+          doc.text(ultimo.tecnico || '—', 80, 71);
+
+          doc.text("Fecha de mantenimiento:", 25, 79);
+          doc.text(new Date().toLocaleDateString('es-ES'), 80, 79);
+
+          doc.text(`Firma del técnico: ${firmaSeleccionada}`, 25, 87);
+
+          doc.setFontSize(12);
+          doc.text("2. INSPECCIÓN VISUAL", 20, 100);
+
+          doc.setFontSize(10);
+          doc.text(`Estado general del cuadro: ${ultimo.estadoGeneral || '—'}`, 25, 110);
+          doc.text(`Envolvente: ${ultimo.envolvente || '—'}`, 25, 118);
+          doc.text(`Identificación de circuitos clara: ${ultimo.circuitosClara || '—'}`, 25, 126);
+          doc.text(`Conexiones y cables: ${ultimo.conexiones || '—'}`, 25, 134);
+          doc.text(`Dispositivos de protección: ${ultimo.proteccion || '—'}`, 25, 142);
+
+          doc.setFontSize(12);
+          doc.text("3. MEDICIONES ELÉCTRICAS POR LÍNEA", 20, 160);
+
+          const tableData = porCuadro[cuadroId].flatMap(r => r.lineas.map(l => {
+            const mqValue = l.mq ?? '—';
+            const mqCell = mqValue !== '—' && parseFloat(mqValue) < 0.5 
+              ? { content: mqValue.toString(), styles: { textColor: [255, 0, 0], fontStyle: 'bold' } } 
+              : mqValue;
+            return [
+              l.linea,
+              l.v ?? '—',
+              l.a ?? '—',
+              mqCell
+            ];
+          }));
+
+          doc.autoTable({
+            startY: 165,
+            head: [['Línea', 'Tensión (V)', 'Corriente (A)', 'R. Aislamiento (MΩ)']],
+            body: tableData,
+            theme: 'grid',
+            styles: { fontSize: 9, cellPadding: 2, halign: 'center' },
+            headStyles: { fillColor: [230, 240, 255] }
+          });
+
+          let y = doc.lastAutoTable.finalY + 10;
+
+          doc.setFontSize(12);
+          doc.text("4. ACCIONES REALIZADAS", 20, y);
+          y += 10;
+
+          doc.setFontSize(10);
+          (ultimo.acciones || []).forEach(acc => {
+            doc.text(`☑ ${acc}`, 25, y);
+            y += 6;
+          });
+
+          doc.setFontSize(12);
+          doc.text("5. OBSERVACIONES Y RECOMENDACIONES", 20, y);
+          y += 10;
+
+          doc.setFontSize(10);
+          doc.text(ultimo.observaciones || 'Sin observaciones', 25, y, { maxWidth: 160 });
+
+          y += 30;
+          doc.text(`Firma del técnico: ${firmaSeleccionada}`, 25, y);
+        });
+
+        doc.save(`Fichas_Mantenimiento_${new Date().toISOString().slice(0,10)}.pdf`);
+        document.getElementById('exportDialog').style.display = 'none';
+      };
+
+      img.onerror = function () {
+        console.warn("No se pudo cargar el logo del ministerio. Generando PDF sin logo.");
+        // Generar PDF sin logo (copia el código del PDF sin addImage si lo necesitas)
+      };
+    });
+
+    document.getElementById('btnCancelarExport').addEventListener('click', () => {
+      document.getElementById('exportDialog').style.display = 'none';
+    });
+
+    document.getElementById('btnAgregarLinea').addEventListener('click', () => agregarFilaRevision());
+    document.getElementById('btnGuardarRevision').addEventListener('click', () => guardarRevision());
+    document.getElementById('cuadroSelectRevision').addEventListener('change', () => cargarLineasAutomaticas());
+    document.getElementById('lineasRevision').addEventListener('input', () => colorearCeldas());
+
+    mostrarSeccion('inicio');
+  </script>
+</body>
+</html>
