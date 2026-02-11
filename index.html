@@ -128,7 +128,7 @@
     .cancel-btn { background: #dc3545; }
     .cancel-btn:hover { background: #c82333; }
     .table-container { overflow-x: auto; margin: 15px 0; }
-    table { width: 100%; min-width: 600px; border-collapse: collapse; }
+    table { width: 100%; min-width: 800px; border-collapse: collapse; } /* Aumentado min-width para más columnas */
     th, td { border: 1px solid #ddd; padding: 8px; text-align: center; font-size: 0.9em; }
     th { background: #e6f0ff; font-weight: bold; }
     .action-icon { cursor: pointer; font-size: 1.3em; margin: 0 6px; }
@@ -246,7 +246,7 @@
       </div>
     </div>
 
-    <!-- Revisión -->
+    <!-- Revisión - con Corriente R, S, T por separado -->
     <div id="seccion-revision" class="seccion" style="display:none;">
       <div class="header-title">Revisión Cuadros Eléctricos</div>
       <div class="form-container">
@@ -291,7 +291,9 @@
               <tr>
                 <th>Línea</th>
                 <th>Tensión (V)</th>
-                <th>Corriente (A)</th>
+                <th>Corriente R (A)</th>
+                <th>Corriente S (A)</th>
+                <th>Corriente T (A)</th>
                 <th>R. Aislamiento (MΩ)</th>
                 <th>Acción</th>
               </tr>
@@ -383,7 +385,9 @@
                 <tr>
                   <th>Línea</th>
                   <th>Tensión (V)</th>
-                  <th>Corriente (A)</th>
+                  <th>Corriente R (A)</th>
+                  <th>Corriente S (A)</th>
+                  <th>Corriente T (A)</th>
                   <th>R. Aislamiento (MΩ)</th>
                   <th>Acción</th>
                 </tr>
@@ -493,7 +497,7 @@
       document.getElementById('sidebar').classList.toggle('visible');
     });
 
-    // CUADROS
+    // CUADROS (sin cambios)
     const formCuadro = document.getElementById('cuadroForm');
     let modoEdicion = false;
     let docIdEdicion = null;
@@ -623,7 +627,9 @@
       tr.innerHTML = `
         <td>${lineaNum}</td>
         <td><input type="number" step="0.1" class="v"></td>
-        <td><input type="number" step="0.1" class="a"></td>
+        <td><input type="number" step="0.1" class="iR"></td>
+        <td><input type="number" step="0.1" class="iS"></td>
+        <td><input type="number" step="0.1" class="iT"></td>
         <td><input type="number" step="0.01" class="mq"></td>
         <td><button type="button" class="delete-line">✖</button></td>
       `;
@@ -635,14 +641,18 @@
     function colorearCeldas() {
       document.querySelectorAll('#lineasRevision tr').forEach(tr => {
         const tds = tr.querySelectorAll('td');
-        if (tds.length < 4) return;
-        const [_, vTd, aTd, mqTd] = tds;
+        if (tds.length < 6) return;
+        const [_, vTd, iRTd, iSTd, iTTd, mqTd] = tds;
         const v = parseFloat(vTd.querySelector('input')?.value);
-        const a = parseFloat(aTd.querySelector('input')?.value);
+        const iR = parseFloat(iRTd.querySelector('input')?.value);
+        const iS = parseFloat(iSTd.querySelector('input')?.value);
+        const iT = parseFloat(iTTd.querySelector('input')?.value);
         const mq = parseFloat(mqTd.querySelector('input')?.value);
 
         vTd.className = 'tension ' + (!isNaN(v) ? (v < 180 || v > 270 ? 'alto' : 'normal') : '');
-        aTd.className = 'intensidad ' + (!isNaN(a) && a > 63 ? 'alto' : '');
+        iRTd.className = 'intensidad ' + (!isNaN(iR) && iR > 63 ? 'alto' : '');
+        iSTd.className = 'intensidad ' + (!isNaN(iS) && iS > 63 ? 'alto' : '');
+        iTTd.className = 'intensidad ' + (!isNaN(iT) && iT > 63 ? 'alto' : '');
         mqTd.className = 'aislamiento ' + (!isNaN(mq) && mq < 1 ? 'bajo' : '');
       });
     }
@@ -665,12 +675,16 @@
       const lineas = [];
       document.querySelectorAll('#lineasRevision tr').forEach(tr => {
         const inputs = tr.querySelectorAll('input');
-        if (inputs.length !== 3) return;
+        if (inputs.length !== 5) return;
         const v = parseFloat(inputs[0].value) || null;
-        const a = parseFloat(inputs[1].value) || null;
-        const mq = parseFloat(inputs[2].value) || null;
+        const iR = parseFloat(inputs[1].value) || null;
+        const iS = parseFloat(inputs[2].value) || null;
+        const iT = parseFloat(inputs[3].value) || null;
+        const mq = parseFloat(inputs[4].value) || null;
         const linea = tr.cells[0].textContent;
-        if (v || a || mq) lineas.push({ linea, v, a, mq });
+        if (v || iR || iS || iT || mq) {
+          lineas.push({ linea, v, iR, iS, iT, mq });
+        }
       });
 
       const observaciones = document.getElementById('observacionesRevision').value.trim();
@@ -706,7 +720,7 @@
       const revsOrden = [...revisiones].sort((a,b) => (b.fecha?.toDate?.()?.getTime() || 0) - (a.fecha?.toDate?.()?.getTime() || 0));
       revsOrden.forEach(r => {
         const fechaStr = r.fecha?.toDate?.() ? new Date(r.fecha.toDate()).toLocaleString('es-ES') : '—';
-        const mediciones = r.lineas?.map(l => `${l.linea}: ${l.v??'-'}V / ${l.a??'-'}A / ${l.mq??'-'}MΩ`).join('<br>') || '—';
+        const mediciones = r.lineas?.map(l => `${l.linea}: ${l.v??'-'}V | R:${l.iR??'-'}A S:${l.iS??'-'}A T:${l.iT??'-'}A | ${l.mq??'-'}MΩ`).join('<br>') || '—';
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${r.cuadroId}</td>
@@ -782,7 +796,9 @@
         tr.innerHTML = `
           <td>${l.linea}</td>
           <td><input type="number" step="0.1" value="${l.v ?? ''}"></td>
-          <td><input type="number" step="0.1" value="${l.a ?? ''}"></td>
+          <td><input type="number" step="0.1" value="${l.iR ?? ''}"></td>
+          <td><input type="number" step="0.1" value="${l.iS ?? ''}"></td>
+          <td><input type="number" step="0.1" value="${l.iT ?? ''}"></td>
           <td><input type="number" step="0.01" value="${l.mq ?? ''}"></td>
           <td><button type="button" class="delete-line">✖</button></td>
         `;
@@ -792,245 +808,6 @@
 
       document.getElementById('formularioRevisionContainer').style.display = 'block';
     }
-
-    function exportarRevisionAExcel(docId) {
-      const r = revisiones.find(r => r.docId === docId);
-      if (!r) return alert('Revisión no encontrada');
-
-      const fechaStr = r.fecha?.toDate?.() ? new Date(r.fecha.toDate()).toLocaleString('es-ES') : '—';
-
-      const data = [
-        [`CUADRO: ${r.cuadroId}`],
-        ["Fecha", fechaStr],
-        ["Técnico", r.tecnico || '—'],
-        ["Observaciones", r.observaciones || '—'],
-        [],
-        ["Línea", "Tensión (V)", "Intensidad (A)", "R. Aislamiento (MΩ)"]
-      ];
-
-      r.lineas.forEach(l => data.push([l.linea, l.v ?? '-', l.a ?? '-', l.mq ?? '-']));
-
-      const ws = XLSX.utils.aoa_to_sheet(data);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Revisión");
-
-      XLSX.writeFile(wb, `Revision_${r.cuadroId}_${new Date().toISOString().slice(0,10)}.xlsx`);
-    }
-
-    async function borrarRevision(docId) {
-      if (confirm('¿Seguro que quieres borrar esta revisión?')) {
-        await deleteDoc(doc(db, "revisiones", docId));
-        alert('Revisión borrada');
-      }
-    }
-
-    document.getElementById('btnExportarSeleccionados').addEventListener('click', () => {
-      const dialog = document.getElementById('exportDialog');
-      const container = document.getElementById('cuadrosExportCheckboxes');
-      container.innerHTML = '';
-
-      const unicos = [...new Set(revisiones.map(r => r.cuadroId))].sort();
-      if (unicos.length === 0) {
-        container.innerHTML = '<p style="color:#dc3545; text-align:center; padding:20px;">No hay revisiones guardadas todavía.</p>';
-      } else {
-        unicos.forEach(id => {
-          const cant = revisiones.filter(r => r.cuadroId === id).length;
-          const label = document.createElement('label');
-          label.innerHTML = `<input type="checkbox" value="${id}" checked> <strong>${id}</strong> (${cant} revisiones)`;
-          container.appendChild(label);
-        });
-      }
-      dialog.style.display = 'block';
-    });
-
-    document.getElementById('btnExportarExcel').addEventListener('click', () => {
-      const checkboxes = document.querySelectorAll('#cuadrosExportCheckboxes input:checked');
-      if (checkboxes.length === 0) return alert('Selecciona al menos un cuadro');
-
-      const seleccion = Array.from(checkboxes).map(cb => cb.value);
-
-      const wb = XLSX.utils.book_new();
-
-      const porCuadro = {};
-      revisiones.forEach(r => {
-        if (seleccion.includes(r.cuadroId)) {
-          if (!porCuadro[r.cuadroId]) porCuadro[r.cuadroId] = [];
-          porCuadro[r.cuadroId].push(r);
-        }
-      });
-
-      if (Object.keys(porCuadro).length === 0) return alert('No hay datos para exportar');
-
-      Object.keys(porCuadro).sort().forEach(id => {
-        const data = [];
-        data.push([`CUADRO: ${id}`]);
-        data.push([]);
-
-        porCuadro[id].forEach(r => {
-          const fechaStr = r.fecha?.toDate?.() ? new Date(r.fecha.toDate()).toLocaleString('es-ES') : '—';
-          data.push([`Revisión: ${fechaStr}`]);
-          data.push([`Técnico: ${r.tecnico || '—'}`]);
-          data.push(["Línea", "Tensión (V)", "Intensidad (A)", "R. Aislamiento (MΩ)", "Observaciones"]);
-
-          r.lineas.forEach(l => {
-            data.push([l.linea, l.v ?? '-', l.a ?? '-', l.mq ?? '-', r.observaciones || '-']);
-          });
-          data.push([]);
-        });
-
-        const ws = XLSX.utils.aoa_to_sheet(data);
-
-        for (let row = 1; row <= data.length; row++) {
-          const mqCell = ws[`D${row}`];
-          if (mqCell && mqCell.v != null && !isNaN(mqCell.v) && mqCell.v < 0.5) {
-            mqCell.s = {
-              font: { color: { rgb: "FF0000" }, bold: true },
-              fill: { fgColor: { rgb: "FFCCCC" } }
-            };
-          }
-        }
-
-        ws['!cols'] = [{wch:15},{wch:14},{wch:14},{wch:22},{wch:60}];
-
-        XLSX.utils.book_append_sheet(wb, ws, id.substring(0, 31));
-      });
-
-      XLSX.writeFile(wb, `Revisiones_${new Date().toISOString().slice(0,10)}.xlsx`);
-      document.getElementById('exportDialog').style.display = 'none';
-    });
-
-    document.getElementById('btnExportarPDF').addEventListener('click', () => {
-      const checkboxes = document.querySelectorAll('#cuadrosExportCheckboxes input:checked');
-      if (checkboxes.length === 0) return alert('Selecciona al menos un cuadro');
-
-      // Obtener la firma seleccionada
-      const firmaSeleccionada = document.querySelector('input[name="firmaTecnico"]:checked')?.value || 'Técnico no especificado';
-
-      const seleccion = Array.from(checkboxes).map(cb => cb.value);
-
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF();
-
-      // URL del logo del Ministerio de Movilidad
-      const ministerioLogoUrl = 'https://i.postimg.cc/yNG0z6GT/Ministerio.png';
-
-      const porCuadro = {};
-      revisiones.forEach(r => {
-        if (seleccion.includes(r.cuadroId)) {
-          if (!porCuadro[r.cuadroId]) porCuadro[r.cuadroId] = [];
-          porCuadro[r.cuadroId].push(r);
-        }
-      });
-
-      // Cargar la imagen del logo (una sola vez)
-      const img = new Image();
-      img.crossOrigin = "Anonymous";
-      img.src = ministerioLogoUrl;
-
-      img.onload = function () {
-        Object.keys(porCuadro).forEach((cuadroId, index) => {
-          if (index > 0) doc.addPage();
-
-          // Añadir logo del ministerio en el encabezado (centrado arriba)
-          const logoWidth = 50; // mm (ajusta si quieres más grande/pequeño)
-          const logoHeight = (img.height / img.width) * logoWidth;
-          const x = (doc.internal.pageSize.getWidth() - logoWidth) / 2;
-          doc.addImage(img, 'PNG', x, 5, logoWidth, logoHeight);
-
-          // Título debajo del logo
-          doc.setFontSize(14);
-          doc.text("FICHA DE MANTENIMIENTO DE CUADRO ELÉCTRICO", 105, 35, { align: "center" });
-
-          doc.setFontSize(12);
-          doc.text("1. DATOS GENERALES", 20, 45);
-
-          doc.setFontSize(10);
-          doc.text("Ubicación del cuadro:", 25, 55);
-          doc.text(cuadroId, 80, 55);
-
-          doc.text("Código o identificación:", 25, 63);
-          doc.text(cuadroId, 80, 63);
-
-          const ultimo = porCuadro[cuadroId][porCuadro[cuadroId].length - 1] || {};
-          doc.text("Técnico / Responsable:", 25, 71);
-          doc.text(ultimo.tecnico || '—', 80, 71);
-
-          doc.text("Fecha de mantenimiento:", 25, 79);
-          doc.text(new Date().toLocaleDateString('es-ES'), 80, 79);
-
-          doc.text(`Firma del técnico: ${firmaSeleccionada}`, 25, 87);
-
-          doc.setFontSize(12);
-          doc.text("2. INSPECCIÓN VISUAL", 20, 100);
-
-          doc.setFontSize(10);
-          doc.text(`Estado general del cuadro: ${ultimo.estadoGeneral || '—'}`, 25, 110);
-          doc.text(`Envolvente: ${ultimo.envolvente || '—'}`, 25, 118);
-          doc.text(`Identificación de circuitos clara: ${ultimo.circuitosClara || '—'}`, 25, 126);
-          doc.text(`Conexiones y cables: ${ultimo.conexiones || '—'}`, 25, 134);
-          doc.text(`Dispositivos de protección: ${ultimo.proteccion || '—'}`, 25, 142);
-
-          doc.setFontSize(12);
-          doc.text("3. MEDICIONES ELÉCTRICAS POR LÍNEA", 20, 160);
-
-          const tableData = porCuadro[cuadroId].flatMap(r => r.lineas.map(l => {
-            const mqValue = l.mq ?? '—';
-            const mqCell = mqValue !== '—' && parseFloat(mqValue) < 0.5 
-              ? { content: mqValue.toString(), styles: { textColor: [255, 0, 0], fontStyle: 'bold' } } 
-              : mqValue;
-            return [
-              l.linea,
-              l.v ?? '—',
-              l.a ?? '—',
-              mqCell
-            ];
-          }));
-
-          doc.autoTable({
-            startY: 165,
-            head: [['Línea', 'Tensión (V)', 'Corriente (A)', 'R. Aislamiento (MΩ)']],
-            body: tableData,
-            theme: 'grid',
-            styles: { fontSize: 9, cellPadding: 2, halign: 'center' },
-            headStyles: { fillColor: [230, 240, 255] }
-          });
-
-          let y = doc.lastAutoTable.finalY + 10;
-
-          doc.setFontSize(12);
-          doc.text("4. ACCIONES REALIZADAS", 20, y);
-          y += 10;
-
-          doc.setFontSize(10);
-          (ultimo.acciones || []).forEach(acc => {
-            doc.text(`☑ ${acc}`, 25, y);
-            y += 6;
-          });
-
-          doc.setFontSize(12);
-          doc.text("5. OBSERVACIONES Y RECOMENDACIONES", 20, y);
-          y += 10;
-
-          doc.setFontSize(10);
-          doc.text(ultimo.observaciones || 'Sin observaciones', 25, y, { maxWidth: 160 });
-
-          y += 30;
-          doc.text(`Firma del técnico: ${firmaSeleccionada}`, 25, y);
-        });
-
-        doc.save(`Fichas_Mantenimiento_${new Date().toISOString().slice(0,10)}.pdf`);
-        document.getElementById('exportDialog').style.display = 'none';
-      };
-
-      img.onerror = function () {
-        console.warn("No se pudo cargar el logo del ministerio. Generando PDF sin logo.");
-        // Generar PDF sin logo (copia el código del PDF sin addImage si lo necesitas)
-      };
-    });
-
-    document.getElementById('btnCancelarExport').addEventListener('click', () => {
-      document.getElementById('exportDialog').style.display = 'none';
-    });
 
     document.getElementById('btnAgregarLinea').addEventListener('click', () => agregarFilaRevision());
     document.getElementById('btnGuardarRevision').addEventListener('click', () => guardarRevision());
